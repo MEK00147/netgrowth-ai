@@ -30,6 +30,7 @@ export type FollowUpStatus = 'scheduled' | 'completed' | 'cancelled' | 'overdue'
 
 export type FollowUpChannel = 'email' | 'phone' | 'whatsapp' | 'sms' | 'meeting';
 export type OrganizationRole = 'admin' | 'sales';
+export interface OrganizationMember { user_id: string; role: OrganizationRole; full_name: string | null; email: string; }
 
 export interface Profile {
   id: string;

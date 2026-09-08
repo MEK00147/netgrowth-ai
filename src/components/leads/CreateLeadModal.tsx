@@ -1,21 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { CreateLeadInput, LeadStatus } from '../../types/database';
+import { CreateLeadInput, LeadStatus, OrganizationMember } from '../../types/database';
+import { organizationService } from '../../services/organizationService';
 
 interface CreateLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (lead: CreateLeadInput) => Promise<boolean>;
+  canAssign?: boolean;
+  organizationId?: string | null;
 }
 
 export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  canAssign = false,
+  organizationId,
 }) => {
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [formData, setFormData] = useState<CreateLeadInput>({
     first_name: '',
     last_name: '',
@@ -35,6 +41,13 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !canAssign || !organizationId) return;
+    organizationService.getMembers(organizationId).then((result) => {
+      if (!result.error) setMembers(result.data.filter((member) => member.role === 'sales'));
+    });
+  }, [isOpen, canAssign, organizationId]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -202,6 +215,13 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
             </Select>
           </div>
         </div>
+
+        {canAssign && members.length > 0 && (
+          <Select label="Assign to salesperson (optional)" value={formData.assigned_to ?? ''} onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value || null })}>
+            <option value="">Leave unassigned</option>
+            {members.map((member) => <option key={member.user_id} value={member.user_id}>{member.full_name || member.email}</option>)}
+          </Select>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>

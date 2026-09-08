@@ -184,6 +184,8 @@ const MainApp: React.FC = () => {
         isOpen={isCreateLeadOpen}
         onClose={() => setIsCreateLeadOpen(false)}
         onSubmit={handleCreateLead}
+        canAssign={user?.profile?.role === 'admin'}
+        organizationId={user?.profile?.organization_id}
       />
 
       <DatabaseSchemaModal

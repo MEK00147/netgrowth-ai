@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Lead, Activity, FollowUp, LeadStatus, CreateFollowUpInput } from '../types/database';
+import { Lead, Activity, FollowUp, LeadStatus, CreateFollowUpInput, OrganizationMember } from '../types/database';
 import { leadService } from '../services/leadService';
 import { activityService } from '../services/activityService';
 import { followUpService } from '../services/followUpService';
@@ -10,6 +10,8 @@ import { StatusBadge, ClassificationBadge } from '../components/ui/Badge';
 import { formatCurrency, formatDate, formatDateTime, formatRelativeTime } from '../utils/formatters';
 import { ScheduleFollowUpModal } from '../components/leads/ScheduleFollowUpModal';
 import { Alert } from '../components/ui/Alert';
+import { useAuth } from '../context/AuthContext';
+import { organizationService } from '../services/organizationService';
 import {
   ArrowLeft,
   Building2,
@@ -37,6 +39,7 @@ interface LeadDetailsProps {
 }
 
 export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLeadDeleted }) => {
+  const { user } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -47,6 +50,7 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [salesMembers, setSalesMembers] = useState<OrganizationMember[]>([]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -63,6 +67,10 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
       if (fupsRes.error) throw new Error(fupsRes.error);
 
       setLead(leadRes.data);
+      if (user?.profile?.role === 'admin' && user.profile.organization_id) {
+        const members = await organizationService.getMembers(user.profile.organization_id);
+        if (!members.error) setSalesMembers(members.data.filter((member) => member.role === 'sales'));
+      }
       setActivities(actsRes.data);
       setFollowUps(fupsRes.data);
     } catch (err: unknown) {
@@ -71,7 +79,7 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
     } finally {
       setIsLoading(false);
     }
-  }, [leadId]);
+  }, [leadId, user?.profile?.organization_id, user?.profile?.role]);
 
   useEffect(() => {
     loadData();
@@ -245,6 +253,18 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
             <option value="lost">Closed Lost</option>
           </Select>
         </div>
+        {user?.profile?.role === 'admin' && salesMembers.length > 0 && (
+          <div className="w-full sm:w-60">
+            <Select value={lead.assigned_to ?? ''} onChange={async (e) => {
+              const result = await leadService.updateLead(lead.id, { assigned_to: e.target.value || null });
+              if (result.data) setLead(result.data);
+              if (result.error) setError(result.error);
+            }} className="py-1.5 text-xs font-medium">
+              <option value="">Unassigned</option>
+              {salesMembers.map((member) => <option key={member.user_id} value={member.user_id}>{member.full_name || member.email}</option>)}
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Two Column Layout */}
