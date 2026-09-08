@@ -29,9 +29,12 @@ export type ActivityType =
 export type FollowUpStatus = 'scheduled' | 'completed' | 'cancelled' | 'overdue';
 
 export type FollowUpChannel = 'email' | 'phone' | 'whatsapp' | 'sms' | 'meeting';
+export type OrganizationRole = 'admin' | 'sales';
 
 export interface Profile {
   id: string;
+  organization_id: string | null;
+  role?: OrganizationRole;
   email: string;
   full_name: string | null;
   company_name: string | null;
@@ -42,7 +45,8 @@ export interface Profile {
 
 export interface Lead {
   id: string;
-  owner_id: string;
+  organization_id: string;
+  assigned_to: string | null;
   first_name: string;
   last_name: string | null;
   email: string;
@@ -104,6 +108,7 @@ export interface DashboardMetrics {
 }
 
 export interface CreateLeadInput {
+  assigned_to?: string | null;
   first_name: string;
   last_name?: string | null;
   email: string;
@@ -123,6 +128,7 @@ export interface CreateLeadInput {
 }
 
 export interface UpdateLeadInput extends Partial<CreateLeadInput> {
+  assigned_to?: string | null;
   ai_summary?: string | null;
   ai_pain_points?: string[] | Record<string, unknown> | null;
   ai_buying_signals?: string[] | Record<string, unknown> | null;

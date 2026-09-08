@@ -30,7 +30,7 @@ Store service secrets in Supabase Edge Function secrets or the environment of a 
 5. Confirm that the owner can create and view their own lead.
 6. Confirm that a signed-out browser cannot read or write profiles, leads, activities, or follow_ups.
 
-The migration gives anonymous visitors no table permissions. Signed-in users can access only rows whose owner_id matches their authenticated user ID.
+The migration gives anonymous visitors no table permissions. Signed-in users are scoped through `organization_members`: admins can manage all leads in their organization, while sales users can read and update only leads whose `assigned_to` is their authenticated user ID. Assignment and membership writes are protected by PostgreSQL RLS, so hiding records in the frontend is not the security boundary.
 
 ## Future public lead form
 

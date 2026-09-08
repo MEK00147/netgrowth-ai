@@ -153,7 +153,7 @@ export const Settings: React.FC<SettingsProps> = ({ onOpenSchemaModal }) => {
                 </h4>
                 <p className="text-xs text-slate-500">
                   {isConfigured
-                    ? 'Row Level Security is actively isolating lead data by owner_id in PostgreSQL.'
+                    ? 'Row Level Security is actively enforcing organization membership, admin access, and assigned-lead access in PostgreSQL.'
                     : 'Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to persist to real Supabase database.'}
                 </p>
               </div>

@@ -131,7 +131,8 @@ export const leadService = {
 
       if (authService.isDemoSession() || !isSupabaseConfigured()) {
         const created = demoStore.createLead({
-          owner_id: demoStore.getProfile().id,
+          organization_id: demoStore.getProfile().organization_id!,
+          assigned_to: leadInput.assigned_to ?? demoStore.getProfile().id,
           first_name: leadInput.first_name.trim(),
           last_name: leadInput.last_name?.trim() || null,
           email,
@@ -159,14 +160,18 @@ export const leadService = {
       if (!supabase) throw new Error('Supabase client unavailable');
 
       const { data: userData } = await supabase.auth.getUser();
-      const resolvedOwnerId = userData.user?.id;
+      const resolvedUserId = userData.user?.id;
 
-      if (!resolvedOwnerId) {
-        throw new Error('Authenticated user session required to assign lead ownership');
+      if (!resolvedUserId) {
+        throw new Error('Authenticated user session required');
       }
 
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('organization_id').eq('id', resolvedUserId).single();
+      if (profileError || !profile?.organization_id) throw new Error('Your account is not connected to an organization');
+
       const insertPayload = {
-        owner_id: resolvedOwnerId,
+        organization_id: profile.organization_id,
+        assigned_to: leadInput.assigned_to ?? null,
         first_name: leadInput.first_name.trim(),
         last_name: leadInput.last_name?.trim() || null,
         email,

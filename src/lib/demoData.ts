@@ -2,6 +2,8 @@ import { Lead, Activity, FollowUp, Profile } from '../types/database';
 
 export const DEMO_USER_PROFILE: Profile = {
   id: 'demo-user-00000000-0000-0000-0000-000000000001',
+  organization_id: 'demo-org-00000000-0000-0000-000000000001',
+  role: 'admin',
   email: 'alex.director@acmecorp.com',
   full_name: 'Alex Rivera',
   company_name: 'Apex Growth Dynamics',
@@ -13,7 +15,7 @@ export const DEMO_USER_PROFILE: Profile = {
 export const INITIAL_DEMO_LEADS: Lead[] = [
   {
     id: 'demo-lead-101',
-    owner_id: DEMO_USER_PROFILE.id,
+    organization_id: DEMO_USER_PROFILE.organization_id!, assigned_to: DEMO_USER_PROFILE.id,
     first_name: 'Chidi',
     last_name: 'Okonkwo',
     email: 'chidi.okonkwo@lagosfintech.ng',
@@ -39,7 +41,7 @@ export const INITIAL_DEMO_LEADS: Lead[] = [
   },
   {
     id: 'demo-lead-102',
-    owner_id: DEMO_USER_PROFILE.id,
+    organization_id: DEMO_USER_PROFILE.organization_id!, assigned_to: DEMO_USER_PROFILE.id,
     first_name: 'Fatima',
     last_name: 'Bello',
     email: 'fatima@sahara-logistics.com',
@@ -65,7 +67,7 @@ export const INITIAL_DEMO_LEADS: Lead[] = [
   },
   {
     id: 'demo-lead-103',
-    owner_id: DEMO_USER_PROFILE.id,
+    organization_id: DEMO_USER_PROFILE.organization_id!, assigned_to: DEMO_USER_PROFILE.id,
     first_name: 'David',
     last_name: 'Adeyemi',
     email: 'david@greenfieldagri.co',
@@ -91,7 +93,7 @@ export const INITIAL_DEMO_LEADS: Lead[] = [
   },
   {
     id: 'demo-lead-104',
-    owner_id: DEMO_USER_PROFILE.id,
+    organization_id: DEMO_USER_PROFILE.organization_id!, assigned_to: DEMO_USER_PROFILE.id,
     first_name: 'Zainab',
     last_name: 'Ibrahim',
     email: 'z.ibrahim@pulsehealth.io',
@@ -117,7 +119,7 @@ export const INITIAL_DEMO_LEADS: Lead[] = [
   },
   {
     id: 'demo-lead-105',
-    owner_id: DEMO_USER_PROFILE.id,
+    organization_id: DEMO_USER_PROFILE.organization_id!, assigned_to: DEMO_USER_PROFILE.id,
     first_name: 'Emeka',
     last_name: 'Nnamdi',
     email: 'emeka@strata-proptech.com',
