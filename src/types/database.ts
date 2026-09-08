@@ -1,5 +1,5 @@
 /**
- * LeadFlow AI — TypeScript Database Types & Domain Models
+ * NetGrowth — TypeScript database types and domain models.
  * Structured for direct compatibility with Supabase PostgreSQL schema.
  */
 

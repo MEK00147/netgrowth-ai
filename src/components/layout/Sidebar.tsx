@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-white text-base tracking-tight">LeadFlow</span>
+              <span className="font-bold text-white text-base tracking-tight">NetGrowth</span>
               <span className="text-xs font-bold text-indigo-400 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-800/60">
                 AI
               </span>

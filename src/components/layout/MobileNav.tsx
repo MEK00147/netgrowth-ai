@@ -67,7 +67,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-sm">LeadFlow</span>
+                    <span className="font-bold text-white text-sm">NetGrowth</span>
                     <span className="text-[10px] font-bold text-indigo-400 bg-indigo-950 px-1 py-0.5 rounded border border-indigo-800">
                       AI
                     </span>

@@ -10,6 +10,8 @@ export interface LeadFilterOptions {
   sortBy?: 'created_at_desc' | 'created_at_asc' | 'score_desc' | 'score_asc' | 'company_asc';
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const leadService = {
   async getLeads(filters?: LeadFilterOptions): Promise<{ data: Lead[]; error: string | null }> {
     try {
@@ -114,13 +116,14 @@ export const leadService = {
     }
   },
 
-  async createLead(leadInput: CreateLeadInput, ownerId?: string): Promise<{ data: Lead | null; error: string | null }> {
+  async createLead(leadInput: CreateLeadInput): Promise<{ data: Lead | null; error: string | null }> {
     try {
       if (!leadInput.first_name?.trim()) {
         return { data: null, error: 'First name is required' };
       }
-      if (!leadInput.email?.trim()) {
-        return { data: null, error: 'Email address is required' };
+      const email = leadInput.email?.trim().toLowerCase();
+      if (!email || !EMAIL_PATTERN.test(email)) {
+        return { data: null, error: 'A valid email address is required' };
       }
       if (!leadInput.inquiry?.trim()) {
         return { data: null, error: 'Inquiry details are required' };
@@ -128,10 +131,10 @@ export const leadService = {
 
       if (authService.isDemoSession() || !isSupabaseConfigured()) {
         const created = demoStore.createLead({
-          owner_id: ownerId || demoStore.getProfile().id,
+          owner_id: demoStore.getProfile().id,
           first_name: leadInput.first_name.trim(),
           last_name: leadInput.last_name?.trim() || null,
-          email: leadInput.email.trim(),
+          email,
           phone: leadInput.phone?.trim() || null,
           company_name: leadInput.company_name?.trim() || null,
           job_title: leadInput.job_title?.trim() || null,
@@ -155,11 +158,8 @@ export const leadService = {
 
       if (!supabase) throw new Error('Supabase client unavailable');
 
-      let resolvedOwnerId = ownerId;
-      if (!resolvedOwnerId) {
-        const { data: userData } = await supabase.auth.getUser();
-        resolvedOwnerId = userData.user?.id;
-      }
+      const { data: userData } = await supabase.auth.getUser();
+      const resolvedOwnerId = userData.user?.id;
 
       if (!resolvedOwnerId) {
         throw new Error('Authenticated user session required to assign lead ownership');
@@ -169,7 +169,7 @@ export const leadService = {
         owner_id: resolvedOwnerId,
         first_name: leadInput.first_name.trim(),
         last_name: leadInput.last_name?.trim() || null,
-        email: leadInput.email.trim(),
+        email,
         phone: leadInput.phone?.trim() || null,
         company_name: leadInput.company_name?.trim() || null,
         job_title: leadInput.job_title?.trim() || null,

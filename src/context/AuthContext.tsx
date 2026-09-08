@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authService, AuthSessionUser, SignInParams, SignUpParams } from '../services/authService';
+import { authService, AuthSessionUser, ProfileUpdateInput, SignInParams, SignUpParams } from '../services/authService';
 import { isSupabaseConfigured, getSupabaseConfigError, supabase } from '../lib/supabase';
-import { Profile } from '../types/database';
 
 interface AuthContextType {
   user: AuthSessionUser | null;
@@ -12,7 +11,7 @@ interface AuthContextType {
   signIn: (params: SignInParams) => Promise<{ success: boolean; error?: string }>;
   signUp: (params: SignUpParams) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Profile>) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (updates: ProfileUpdateInput) => Promise<{ success: boolean; error?: string }>;
   refreshSession: () => Promise<void>;
   toggleDemoMode: (enabled: boolean) => void;
 }
@@ -106,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   };
 
-  const updateProfile = async (updates: Partial<Profile>): Promise<{ success: boolean; error?: string }> => {
+  const updateProfile = async (updates: ProfileUpdateInput): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'No active session' };
     const { profile, error } = await authService.updateProfile(user.id, updates);
     if (error) return { success: false, error };

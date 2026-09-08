@@ -21,7 +21,9 @@ export interface AuthSessionUser {
   isDemo: boolean;
 }
 
-const DEMO_AUTH_STORAGE_KEY = 'leadflow_ai_demo_auth_active';
+export type ProfileUpdateInput = Partial<Pick<Profile, 'full_name' | 'company_name' | 'avatar_url'>>;
+
+const DEMO_AUTH_STORAGE_KEY = 'netgrowth_demo_auth_active';
 
 export const authService = {
   isConfigured(): boolean {
@@ -132,28 +134,12 @@ export const authService = {
         return { user: null, error: 'Registration completed but user object was not returned. Please verify your email.' };
       }
 
-      // Upsert profile record explicitly to guarantee presence
-      const { data: profileData, error: profileErr } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          email: data.user.email ?? email,
-          full_name: fullName ?? null,
-          company_name: companyName ?? null,
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (profileErr) {
-        console.warn('Auto profile insertion warning:', profileErr.message);
-      }
-
       return {
         user: {
           id: data.user.id,
           email: data.user.email ?? email,
-          profile: profileData as Profile | null,
+          // The database trigger creates this profile. It is loaded on the next auth event or session restore.
+          profile: null,
           isDemo: false,
         },
         error: null,
@@ -249,7 +235,7 @@ export const authService = {
     }
   },
 
-  async updateProfile(userId: string, updates: Partial<Profile>): Promise<{ profile: Profile | null; error: string | null }> {
+  async updateProfile(userId: string, updates: ProfileUpdateInput): Promise<{ profile: Profile | null; error: string | null }> {
     try {
       if (this.isDemoSession() || !isSupabaseConfigured()) {
         const updated = demoStore.updateProfile(updates);
@@ -260,10 +246,7 @@ export const authService = {
 
       const { data, error } = await supabase
         .from('profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updates)
         .eq('id', userId)
         .select()
         .single();

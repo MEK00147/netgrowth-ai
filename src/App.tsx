@@ -56,7 +56,7 @@ const MainApp: React.FC = () => {
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white">
         <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold tracking-wide text-slate-300">
-          Initializing LeadFlow AI Engine...
+          Initializing NetGrowth...
         </p>
       </div>
     );

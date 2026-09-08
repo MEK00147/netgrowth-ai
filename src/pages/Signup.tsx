@@ -66,7 +66,7 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin, onOpenSchemaM
             <Cpu className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-            <span>LeadFlow</span>
+            <span>NetGrowth</span>
             <span className="text-xs font-bold text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded border border-indigo-800">
               AI
             </span>

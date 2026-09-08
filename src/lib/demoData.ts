@@ -238,7 +238,7 @@ export const INITIAL_DEMO_FOLLOW_UPS: FollowUp[] = [
 ];
 
 // In-memory demo state with local storage synchronization for seamless preview interaction
-const DEMO_STORAGE_KEY = 'leadflow_ai_demo_state_v1';
+const DEMO_STORAGE_KEY = 'netgrowth_demo_state_v1';
 
 interface DemoStoreState {
   leads: Lead[];
