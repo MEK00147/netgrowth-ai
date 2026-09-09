@@ -90,7 +90,7 @@ export const authService = {
     }
   },
 
-  async signUp({ email, password, fullName, companyName }: SignUpParams): Promise<{ user: AuthSessionUser | null; error: string | null }> {
+  async signUp({ email, password, fullName, companyName }: SignUpParams): Promise<{ user: AuthSessionUser | null; requiresEmailConfirmation?: boolean; error: string | null }> {
     try {
       if (!isSupabaseConfigured()) {
         // In unconfigured demo mode, simulate registration and profile setup
@@ -130,6 +130,15 @@ export const authService = {
 
       if (!data.user) {
         return { user: null, error: 'Registration completed but user object was not returned. Please verify your email.' };
+      }
+
+      // If Supabase requires email verification, data.session is null until confirmed
+      if (!data.session) {
+        return {
+          user: null,
+          requiresEmailConfirmation: true,
+          error: null,
+        };
       }
 
       // Upsert profile record explicitly to guarantee presence
@@ -188,6 +197,12 @@ export const authService = {
       });
 
       if (error) {
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+          return {
+            user: null,
+            error: 'Your email address is not yet confirmed. Please click the verification link sent to your inbox, or disable "Confirm email" under Authentication > Providers > Email in your Supabase dashboard to log in instantly.',
+          };
+        }
         return { user: null, error: error.message };
       }
 

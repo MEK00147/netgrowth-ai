@@ -3,12 +3,15 @@ import { Lead, Activity, FollowUp, LeadStatus, CreateFollowUpInput } from '../ty
 import { leadService } from '../services/leadService';
 import { activityService } from '../services/activityService';
 import { followUpService } from '../services/followUpService';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { StatusBadge, ClassificationBadge } from '../components/ui/Badge';
 import { formatCurrency, formatDate, formatDateTime, formatRelativeTime } from '../utils/formatters';
 import { ScheduleFollowUpModal } from '../components/leads/ScheduleFollowUpModal';
+import { AssignLeadModal } from '../components/leads/AssignLeadModal';
+import { AddActivityModal } from '../components/leads/AddActivityModal';
 import { Alert } from '../components/ui/Alert';
 import {
   ArrowLeft,
@@ -17,17 +20,19 @@ import {
   Phone,
   Globe,
   Briefcase,
-  Calendar,
-  Clock,
-  Sparkles,
   Bot,
   CalendarPlus,
   Trash2,
   CheckCircle2,
   Tag,
-  Share2,
-  MessageSquare,
+  UserCheck,
+  UserPlus,
+  ShieldCheck,
+  ShieldAlert,
+  MessageSquarePlus,
   AlertCircle,
+  Clock,
+  Check,
 } from 'lucide-react';
 
 interface LeadDetailsProps {
@@ -37,13 +42,17 @@ interface LeadDetailsProps {
 }
 
 export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLeadDeleted }) => {
+  const { user, isAdmin, isSales } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAccessDenied, setIsAccessDenied] = useState<boolean>(false);
 
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -51,6 +60,7 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setIsAccessDenied(false);
     try {
       const [leadRes, actsRes, fupsRes] = await Promise.all([
         leadService.getLead(leadId),
@@ -58,7 +68,16 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
         followUpService.getFollowUps(leadId),
       ]);
 
-      if (leadRes.error) throw new Error(leadRes.error);
+      if (leadRes.error) {
+        if (
+          leadRes.error.toLowerCase().includes('access denied') ||
+          leadRes.error.toLowerCase().includes('permission') ||
+          leadRes.error.toLowerCase().includes('security')
+        ) {
+          setIsAccessDenied(true);
+        }
+        throw new Error(leadRes.error);
+      }
       if (actsRes.error) throw new Error(actsRes.error);
       if (fupsRes.error) throw new Error(fupsRes.error);
 
@@ -85,7 +104,6 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
       if (err) throw new Error(err);
       if (data) {
         setLead(data);
-        // Refresh activities to show new status_changed event
         const acts = await activityService.getLeadActivities(lead.id);
         setActivities(acts.data);
       }
@@ -113,6 +131,10 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
 
   const handleDeleteLead = async () => {
     if (!lead) return;
+    if (!isAdmin) {
+      setError('Permission denied: Only organization administrators can delete leads.');
+      return;
+    }
     setIsDeleting(true);
     try {
       const { success, error: err } = await leadService.deleteLead(lead.id);
@@ -132,11 +154,40 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
     loadData();
   };
 
+  const handleAssigned = (updatedLead: Lead) => {
+    setLead(updatedLead);
+    loadData(); // Re-fetch to update audit trail timeline
+  };
+
+  const handleActivityAdded = () => {
+    loadData();
+  };
+
   if (isLoading) {
     return (
       <div className="p-8 text-center text-slate-500">
         <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-xs">Loading lead record...</p>
+        <p className="text-xs">Verifying authorization and loading lead record...</p>
+      </div>
+    );
+  }
+
+  // Security Access Denied State
+  if (isAccessDenied || (!lead && error)) {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center bg-white rounded-xl border border-rose-200 shadow-sm mt-8">
+        <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 border border-rose-200">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">Security Access Denied</h3>
+        <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+          {error || 'You do not have permission to view this lead. Under organization access control rules, sales specialists can only access leads assigned directly to them.'}
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <Button size="sm" variant="primary" onClick={onBack} leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}>
+            Back to My Leads
+          </Button>
+        </div>
       </div>
     );
   }
@@ -153,6 +204,9 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
       </div>
     );
   }
+
+  const assignedName = lead.assigned_user?.full_name || (lead.assigned_to ? 'Sales Specialist' : null);
+  const isAssignedToCurrentUser = Boolean(user && lead.assigned_to === user.id);
 
   return (
     <div className="space-y-6">
@@ -171,17 +225,57 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                 {lead.first_name} {lead.last_name ?? ''}
               </h2>
-              <ClassificationBadge classification={lead.classification} score={lead.score} />
+              <ClassificationBadge classification={lead.classification || lead.temperature} score={lead.score ?? lead.ai_score} />
               <StatusBadge status={lead.status} />
+
+              {/* Assignee pill in header */}
+              {assignedName ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  <UserCheck className="w-3 h-3 text-indigo-600" />
+                  <span>Assigned to: <strong className="text-slate-900">{assignedName}</strong></span>
+                  {isAssignedToCurrentUser && (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-bold">You</span>
+                  )}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                  <Clock className="w-3 h-3 text-amber-600" />
+                  <span>Unassigned</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               Added {formatDate(lead.created_at)} • Source: {lead.source || 'Direct'}
+              {lead.service_interest && ` • Interest: ${lead.service_interest}`}
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Admin Manual Assignment Button */}
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-indigo-200 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300"
+              leftIcon={lead.assigned_to ? <UserCheck className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+              onClick={() => setIsAssignModalOpen(true)}
+            >
+              {lead.assigned_to ? 'Reassign Lead' : 'Assign to Sales'}
+            </Button>
+          )}
+
+          {/* Add Activity / Note Button (both Admin and Sales) */}
+          <Button
+            size="sm"
+            variant="outline"
+            leftIcon={<MessageSquarePlus className="w-3.5 h-3.5 text-slate-600" />}
+            onClick={() => setIsAddActivityOpen(true)}
+          >
+            Add Note
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -191,14 +285,17 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
             Schedule Touchpoint
           </Button>
 
-          <Button
-            size="sm"
-            variant="danger"
-            leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            Delete
-          </Button>
+          {/* Delete Button (Admins only) */}
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="danger"
+              leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete
+            </Button>
+          )}
         </div>
       </div>
 
@@ -293,7 +390,7 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
             </CardBody>
           </Card>
 
-          {/* AI Intelligence Card (Phase 1: Displays explicit professional pending states) */}
+          {/* AI Intelligence Card */}
           <Card className="border-indigo-100 bg-linear-to-b from-indigo-50/30 to-white">
             <CardHeader
               title={
@@ -310,17 +407,18 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
               }
             />
             <CardBody className="space-y-4">
-              {/* Score breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="p-3.5 rounded-lg bg-white border border-slate-200">
                   <div className="text-xs text-slate-500 font-medium">AI Qualification Score</div>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="text-2xl font-bold font-mono text-slate-900">
-                      {lead.score !== null ? `${lead.score}/100` : 'AI analysis pending'}
+                      {(lead.score ?? lead.ai_score) !== null && (lead.score ?? lead.ai_score) !== undefined
+                        ? `${lead.score ?? lead.ai_score}/100`
+                        : 'AI analysis pending'}
                     </span>
-                    {lead.classification && (
+                    {(lead.classification || lead.temperature) && (
                       <span className="text-xs font-semibold capitalize text-slate-600">
-                        ({lead.classification} Tier)
+                        ({lead.classification || lead.temperature} Tier)
                       </span>
                     )}
                   </div>
@@ -337,25 +435,11 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
                 </div>
               </div>
 
-              {/* AI Summary */}
               <div className="p-3.5 rounded-lg bg-white border border-slate-200">
                 <div className="text-xs font-semibold text-slate-700 mb-1">Executive Inquiry Summary</div>
                 <p className="text-xs text-slate-600 italic">
                   {lead.ai_summary || 'AI analysis pending. Once n8n webhook and qualification engine are connected in Phase 2, an executive synthesis will appear here.'}
                 </p>
-              </div>
-
-              {/* Buying signals & pain points */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="p-3.5 rounded-lg bg-white border border-slate-200">
-                  <div className="text-xs font-semibold text-emerald-800 mb-1">Detected Buying Signals</div>
-                  <p className="text-xs text-slate-500 italic">AI analysis pending</p>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-white border border-slate-200">
-                  <div className="text-xs font-semibold text-rose-800 mb-1">Customer Pain Points</div>
-                  <p className="text-xs text-slate-500 italic">AI analysis pending</p>
-                </div>
               </div>
             </CardBody>
           </Card>
@@ -364,37 +448,132 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
           <Card>
             <CardHeader
               title="Audit Trail & Activity Timeline"
-              subtitle="Chronological log of lead events, status changes, and future webhook events"
+              subtitle="Chronological log of lead events, assignment changes, and sales notes"
+              action={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  leftIcon={<MessageSquarePlus className="w-3.5 h-3.5 text-indigo-600" />}
+                  onClick={() => setIsAddActivityOpen(true)}
+                >
+                  Log Activity
+                </Button>
+              }
             />
             <CardBody>
               {activities.length === 0 ? (
                 <p className="text-xs text-slate-500 italic">No activity recorded yet.</p>
               ) : (
                 <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                  {activities.map((act) => (
-                    <div key={act.id} className="relative group">
-                      <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-indigo-600 ring-4 ring-white" />
-                      <div className="text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-slate-900">{act.description}</span>
-                          <span className="text-[11px] text-slate-400 shrink-0">
-                            {formatRelativeTime(act.created_at)}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                          Event: {act.type}
+                  {activities.map((act) => {
+                    const isAssignmentEvent = act.type === 'lead_assigned' || act.type === 'lead_reassigned';
+                    return (
+                      <div key={act.id} className="relative group">
+                        <div
+                          className={`absolute -left-6 top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
+                            isAssignmentEvent ? 'bg-indigo-600' : 'bg-slate-400'
+                          }`}
+                        />
+                        <div className="text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-slate-900">{act.description}</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">
+                              {formatRelativeTime(act.created_at)}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5 font-mono flex items-center gap-2">
+                            <span>Event: {act.type}</span>
+                            {act.user_name && <span>• By: {act.user_name}</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardBody>
           </Card>
         </div>
 
-        {/* Right Column: Contact info & Follow-ups (1 col) */}
+        {/* Right Column: Assignment, Contact info & Follow-ups (1 col) */}
         <div className="space-y-6">
+          {/* Salesperson Assignment Card */}
+          <Card>
+            <CardHeader
+              title="Sales Ownership & Assignment"
+              subtitle="Designated representative for this lead"
+              action={
+                isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs text-indigo-600 hover:text-indigo-800"
+                    onClick={() => setIsAssignModalOpen(true)}
+                  >
+                    {lead.assigned_to ? 'Change' : 'Assign'}
+                  </Button>
+                )
+              }
+            />
+            <CardBody className="space-y-3">
+              {lead.assigned_user || lead.assigned_to ? (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                      {(lead.assigned_user?.full_name || 'S').charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                        <span>{lead.assigned_user?.full_name || 'Assigned Representative'}</span>
+                        {isAssignedToCurrentUser && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 rounded font-bold">You</span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate">
+                        {lead.assigned_user?.email || 'Sales Specialist'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase shrink-0">
+                    Sales
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>No salesperson currently assigned</span>
+                  </div>
+                  {isAdmin ? (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="w-full text-xs"
+                      leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+                      onClick={() => setIsAssignModalOpen(true)}
+                    >
+                      Assign to Salesperson
+                    </Button>
+                  ) : (
+                    <p className="text-[11px] text-amber-700">
+                      Lead is awaiting review and manual assignment by an organization administrator.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Role-based permissions notice */}
+              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  {isAdmin
+                    ? 'Admin privilege: You can assign or reassign leads across your team.'
+                    : 'Sales privilege: You have edit and follow-up access to this assigned lead.'}
+                </span>
+              </div>
+            </CardBody>
+          </Card>
+
           {/* Contact Details Card */}
           <Card>
             <CardHeader title="Contact & Organization" />
@@ -436,6 +615,15 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
                     <Building2 className="w-3.5 h-3.5 text-slate-400" />
                     <span>{lead.company_name}</span>
                   </span>
+                </div>
+              )}
+
+              {lead.service_interest && (
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                    Service Interest
+                  </span>
+                  <span className="font-medium text-slate-800 block mt-0.5">{lead.service_interest}</span>
                 </div>
               )}
 
@@ -544,13 +732,30 @@ export const LeadDetails: React.FC<LeadDetailsProps> = ({ leadId, onBack, onLead
         </div>
       </div>
 
-      {/* Schedule Follow Up Modal */}
+      {/* Modals */}
       <ScheduleFollowUpModal
         isOpen={isFollowUpModalOpen}
         onClose={() => setIsFollowUpModalOpen(false)}
         leadId={lead.id}
         leadName={`${lead.first_name} ${lead.last_name ?? ''}`}
         onSubmit={handleCreateFollowUp}
+      />
+
+      {isAdmin && (
+        <AssignLeadModal
+          isOpen={isAssignModalOpen}
+          onClose={() => setIsAssignModalOpen(false)}
+          lead={lead}
+          onAssigned={handleAssigned}
+        />
+      )}
+
+      <AddActivityModal
+        isOpen={isAddActivityOpen}
+        onClose={() => setIsAddActivityOpen(false)}
+        leadId={lead.id}
+        leadName={`${lead.first_name} ${lead.last_name ?? ''}`}
+        onActivityAdded={handleActivityAdded}
       />
     </div>
   );

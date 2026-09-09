@@ -2,7 +2,7 @@ import React from 'react';
 import { Lead } from '../../types/database';
 import { StatusBadge, ClassificationBadge } from '../ui/Badge';
 import { formatDate, formatCurrency } from '../../utils/formatters';
-import { Building2, ChevronRight, Mail, Calendar } from 'lucide-react';
+import { Building2, ChevronRight, Mail, Calendar, UserCheck, Clock } from 'lucide-react';
 import { Card } from '../ui/Card';
 
 interface LeadCardProps {
@@ -11,6 +11,8 @@ interface LeadCardProps {
 }
 
 export const LeadCard: React.FC<LeadCardProps> = ({ lead, onSelect }) => {
+  const assigneeName = lead.assigned_user?.full_name;
+
   return (
     <Card
       onClick={() => onSelect(lead)}
@@ -31,7 +33,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, onSelect }) => {
         </div>
         <div className="flex flex-col items-end gap-1">
           <StatusBadge status={lead.status} />
-          <ClassificationBadge classification={lead.classification} score={lead.score} />
+          <ClassificationBadge classification={lead.classification || lead.temperature} score={lead.score ?? lead.ai_score} />
         </div>
       </div>
 
@@ -44,6 +46,21 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, onSelect }) => {
           <div className="text-xs font-medium text-slate-700">
             Budget: {formatCurrency(lead.budget, lead.budget_currency)}
           </div>
+        )}
+      </div>
+
+      {/* Assignee chip */}
+      <div className="pt-2 pb-1">
+        {assigneeName ? (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            <UserCheck className="w-3 h-3 text-indigo-600" />
+            <span>Assigned: <strong className="text-slate-900">{assigneeName}</strong></span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200/80">
+            <Clock className="w-3 h-3 text-amber-600" />
+            <span>Unassigned</span>
+          </span>
         )}
       </div>
 

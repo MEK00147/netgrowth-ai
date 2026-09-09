@@ -9,6 +9,10 @@ import {
   Database,
   Cpu,
   Sparkles,
+  Shield,
+  UserCheck,
+  Building2,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -21,7 +25,17 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpenSchemaModal }) => {
-  const { user, signOut, isDemoMode } = useAuth();
+  const {
+    user,
+    organization,
+    role,
+    isAdmin,
+    signOut,
+    isDemoMode,
+    availablePersonas,
+    activePersonaId,
+    switchDemoPersona,
+  } = useAuth();
 
   const navItems: {
     id: NavigationTab;
@@ -40,28 +54,65 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
   return (
     <aside className="w-64 h-full bg-slate-900 text-slate-200 flex flex-col shrink-0 border-r border-slate-800 select-none">
       {/* Brand Header */}
-      <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
+      <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/20">
             <Cpu className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-white text-base tracking-tight">LeadFlow</span>
-              <span className="text-xs font-bold text-indigo-400 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-800/60">
+              <span className="font-bold text-white text-base tracking-tight">NetGrowth</span>
+              <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950/80 px-1.5 py-0.2 rounded border border-indigo-800/60">
                 AI
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">Sales Automation Engine</p>
+            <p className="text-[11px] text-slate-400 font-medium">Sales Automation Platform</p>
           </div>
         </div>
       </div>
 
-      {/* Demo Mode Notice in Sidebar if Active */}
-      {isDemoMode && (
-        <div className="mx-4 mt-4 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span className="text-[11px] font-medium leading-tight">Client Demo Sandbox Active</span>
+      {/* Organization & Active Role Badge */}
+      <div className="px-4 py-3 bg-slate-950/60 border-b border-slate-800/70">
+        <div className="flex items-center justify-between text-xs mb-1">
+          <span className="text-slate-400 font-medium flex items-center gap-1.5 truncate">
+            <Building2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <span className="truncate">{organization?.name || 'NetGrowth Workspace'}</span>
+          </span>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+              isAdmin
+                ? 'bg-amber-950 text-amber-300 border border-amber-800/80'
+                : 'bg-indigo-950 text-indigo-300 border border-indigo-800/80'
+            }`}
+          >
+            {role || 'Admin'}
+          </span>
+        </div>
+      </div>
+
+      {/* Persona Role Switcher in Demo Mode */}
+      {isDemoMode && availablePersonas && availablePersonas.length > 0 && (
+        <div className="mx-3 mt-3 p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-xs space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold">
+            <span className="flex items-center gap-1 text-amber-400">
+              <Sparkles className="w-3 h-3" /> Persona Role Switcher
+            </span>
+          </div>
+          <select
+            value={activePersonaId || ''}
+            onChange={(e) => switchDemoPersona(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1.5 focus:outline-hidden focus:border-indigo-500 cursor-pointer font-medium"
+            title="Switch user role and test organization access control"
+          >
+            {availablePersonas.map((p) => (
+              <option key={p.profile.id} value={p.profile.id}>
+                {p.profile.full_name} ({p.role.toUpperCase()})
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-slate-400 leading-tight">
+            Switch between Admin (full view & assignment) and Sales Specialists (assigned leads only).
+          </p>
         </div>
       )}
 

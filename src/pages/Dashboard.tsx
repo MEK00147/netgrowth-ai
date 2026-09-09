@@ -34,7 +34,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToLeads,
   onOpenNewLeadModal,
 }) => {
-  const { user, isDemoMode } = useAuth();
+  const { user, organization, role, isAdmin, isSales, isDemoMode } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -68,7 +68,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     loadDashboardData();
-  }, [loadDashboardData, isDemoMode]);
+  }, [loadDashboardData, isDemoMode, user?.id, role]);
 
   const handleToggleFollowUp = async (followUp: FollowUp) => {
     const newStatus = followUp.status === 'completed' ? 'scheduled' : 'completed';
@@ -88,19 +88,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Top Banner / Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               Welcome, {user?.profile?.full_name || 'Executive'}
             </h2>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${
+                isAdmin
+                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              }`}
+            >
+              {role === 'sales' ? 'Sales Specialist' : 'Organization Admin'}
+            </span>
             {isDemoMode && (
-              <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
-                Demo Mode
+              <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                Demo Persona
               </span>
             )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {user?.profile?.company_name ? `${user.profile.company_name} — ` : ''}
-            Lead intake, automated qualification metrics, and sales pipeline readiness.
+            {organization?.name ? `${organization.name} — ` : ''}
+            {isSales
+              ? 'Monitoring your assigned qualified prospects, response deadlines, and follow-up activities.'
+              : 'Enterprise lead intake, manual sales assignment, qualification triage, and pipeline health.'}
           </p>
         </div>
 

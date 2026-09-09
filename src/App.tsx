@@ -38,7 +38,7 @@ const MainApp: React.FC = () => {
   const handleCreateLead = async (input: CreateLeadInput): Promise<boolean> => {
     const { data, error } = await leadService.createLead(input);
     if (error) {
-      alert(`Failed to create lead: ${error}`);
+      showNotification(`Failed to create lead: ${error}`);
       return false;
     }
     if (data) {

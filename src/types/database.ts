@@ -3,6 +3,23 @@
  * Structured for direct compatibility with Supabase PostgreSQL schema.
  */
 
+export type UserRole = 'admin' | 'sales';
+
+export interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: UserRole;
+  created_at: string;
+  user?: Profile | null;
+}
+
 export type LeadStatus =
   | 'new'
   | 'qualified'
@@ -17,6 +34,8 @@ export type LeadClassification = 'hot' | 'warm' | 'cold';
 export type ActivityType =
   | 'lead_created'
   | 'lead_updated'
+  | 'lead_assigned'
+  | 'lead_reassigned'
   | 'ai_analyzed'
   | 'score_updated'
   | 'email_generated'
@@ -42,12 +61,17 @@ export interface Profile {
 
 export interface Lead {
   id: string;
-  owner_id: string;
+  organization_id: string;
+  assigned_to: string | null;
+  created_by: string;
+  owner_id?: string; // backwards compatibility alias
   first_name: string;
   last_name: string | null;
+  full_name?: string | null;
   email: string;
   phone: string | null;
   company_name: string | null;
+  service_interest?: string | null;
   job_title: string | null;
   website: string | null;
   industry: string | null;
@@ -58,11 +82,14 @@ export interface Lead {
   source: string | null;
   status: LeadStatus;
   score: number | null;
+  ai_score?: number | null;
   classification: LeadClassification | null;
+  temperature?: LeadClassification | null;
   ai_summary: string | null;
   ai_pain_points: string[] | Record<string, unknown> | null;
   ai_buying_signals: string[] | Record<string, unknown> | null;
   ai_recommended_action: string | null;
+  assigned_user?: Profile | null;
   created_at: string;
   updated_at: string;
 }
@@ -70,7 +97,11 @@ export interface Lead {
 export interface Activity {
   id: string;
   lead_id: string;
+  organization_id?: string | null;
+  user_id?: string | null;
+  user_name?: string | null;
   type: ActivityType | string;
+  activity_type?: ActivityType | string;
   description: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
@@ -106,9 +137,11 @@ export interface DashboardMetrics {
 export interface CreateLeadInput {
   first_name: string;
   last_name?: string | null;
+  full_name?: string | null;
   email: string;
   phone?: string | null;
   company_name?: string | null;
+  service_interest?: string | null;
   job_title?: string | null;
   website?: string | null;
   industry?: string | null;
@@ -120,6 +153,9 @@ export interface CreateLeadInput {
   status?: LeadStatus;
   score?: number | null;
   classification?: LeadClassification | null;
+  organization_id?: string;
+  assigned_to?: string | null;
+  created_by?: string;
 }
 
 export interface UpdateLeadInput extends Partial<CreateLeadInput> {
@@ -127,6 +163,7 @@ export interface UpdateLeadInput extends Partial<CreateLeadInput> {
   ai_pain_points?: string[] | Record<string, unknown> | null;
   ai_buying_signals?: string[] | Record<string, unknown> | null;
   ai_recommended_action?: string | null;
+  assigned_to?: string | null;
 }
 
 export interface CreateFollowUpInput {

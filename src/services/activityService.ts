@@ -8,7 +8,6 @@ export const activityService = {
     try {
       if (authService.isDemoSession() || !isSupabaseConfigured()) {
         const activities = demoStore.getActivities(leadId);
-        // Order by created_at desc
         activities.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         return { data: activities, error: null };
       }
@@ -34,16 +33,23 @@ export const activityService = {
     leadId: string,
     type: ActivityType | string,
     description: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    organizationId?: string,
+    userId?: string
   ): Promise<{ data: Activity | null; error: string | null }> {
     try {
       if (!leadId) return { data: null, error: 'leadId is required' };
       if (!description?.trim()) return { data: null, error: 'Activity description is required' };
 
       if (authService.isDemoSession() || !isSupabaseConfigured()) {
+        const activePersona = demoStore.getActivePersona();
         const created = demoStore.createActivity({
           lead_id: leadId,
+          organization_id: organizationId || demoStore.getOrganization().id,
+          user_id: userId || activePersona.profile.id,
+          user_name: activePersona.profile.full_name,
           type,
+          activity_type: type,
           description: description.trim(),
           metadata: metadata ?? null,
         });
@@ -52,11 +58,30 @@ export const activityService = {
 
       if (!supabase) throw new Error('Supabase client unavailable');
 
+      let resolvedUserId = userId;
+      if (!resolvedUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        resolvedUserId = authData.user?.id;
+      }
+
+      let resolvedOrgId = organizationId;
+      if (!resolvedOrgId && resolvedUserId) {
+        const { data: memberData } = await supabase
+          .from('organization_members')
+          .select('organization_id')
+          .eq('user_id', resolvedUserId)
+          .maybeSingle();
+        resolvedOrgId = memberData?.organization_id;
+      }
+
       const { data, error } = await supabase
         .from('activities')
         .insert({
           lead_id: leadId,
+          organization_id: resolvedOrgId,
+          user_id: resolvedUserId,
           type,
+          activity_type: type,
           description: description.trim(),
           metadata: metadata ?? null,
         })

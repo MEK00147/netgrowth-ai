@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Alert } from '../components/ui/Alert';
 import { Skeleton } from '../components/ui/Skeleton';
-import { Plus, Users, RefreshCw } from 'lucide-react';
+import { Plus, Users, RefreshCw, Shield, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface LeadsProps {
@@ -17,7 +17,7 @@ interface LeadsProps {
 }
 
 export const Leads: React.FC<LeadsProps> = ({ onSelectLead, onOpenNewLeadModal }) => {
-  const { isDemoMode } = useAuth();
+  const { user, role, isAdmin, isSales, isDemoMode } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,16 +46,30 @@ export const Leads: React.FC<LeadsProps> = ({ onSelectLead, onOpenNewLeadModal }
 
   useEffect(() => {
     loadLeads();
-  }, [loadLeads, isDemoMode]);
+  }, [loadLeads, isDemoMode, user?.id, role]);
 
   return (
     <div className="space-y-5">
       {/* Header with Title and Add Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Lead Pipeline Management</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Lead Pipeline Management</h2>
+            {isSales && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <UserCheck className="w-3 h-3" /> My Assigned Leads
+              </span>
+            )}
+            {isAdmin && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                <Shield className="w-3 h-3 text-indigo-600" /> Organization Administrator
+              </span>
+            )}
+          </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Monitor, qualify, and triage prospect inquiries across your sales channels.
+            {isSales
+              ? 'Displaying all qualified leads assigned to your representative profile.'
+              : 'Monitor, assign to sales specialists, and qualify prospect inquiries across your organization.'}
           </p>
         </div>
 
@@ -100,10 +114,12 @@ export const Leads: React.FC<LeadsProps> = ({ onSelectLead, onOpenNewLeadModal }
         <div className="bg-white rounded-xl border border-slate-200/80 p-6">
           <EmptyState
             icon={Users}
-            title="No leads found"
+            title={isSales ? 'No assigned leads' : 'No leads found'}
             description={
               filters.search || filters.status !== 'all' || filters.classification !== 'all'
                 ? 'No leads matched your filter criteria. Try clearing or relaxing search filters.'
+                : isSales
+                ? 'You do not have any leads assigned to you yet. Your administrator will assign leads to you.'
                 : 'Your sales pipeline currently has no registered leads. Create a new lead to get started.'
             }
             action={
@@ -124,10 +140,10 @@ export const Leads: React.FC<LeadsProps> = ({ onSelectLead, onOpenNewLeadModal }
                     <th className="py-3 px-4">Contact Name</th>
                     <th className="py-3 px-4">Company</th>
                     <th className="py-3 px-4">Email</th>
+                    <th className="py-3 px-4">Assigned To</th>
                     <th className="py-3 px-4">Score</th>
                     <th className="py-3 px-4">Classification</th>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Source</th>
                     <th className="py-3 px-4">Date Added</th>
                     <th className="py-3 px-4 text-right">Action</th>
                   </tr>

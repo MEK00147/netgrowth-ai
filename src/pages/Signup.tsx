@@ -4,7 +4,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Alert } from '../components/ui/Alert';
-import { Cpu, Mail, Lock, User, Building2, ShieldCheck } from 'lucide-react';
+import { Cpu, Mail, Lock, User, Building2, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 
 interface SignupProps {
   onNavigateToLogin: () => void;
@@ -20,6 +20,7 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin, onOpenSchemaM
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [requiresConfirmation, setRequiresConfirmation] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +53,51 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin, onOpenSchemaM
 
     if (!result.success) {
       setErrorMessage(result.error || 'Failed to create account.');
+      return;
+    }
+
+    if (result.requiresEmailConfirmation) {
+      setRequiresConfirmation(true);
     }
   };
+
+  if (requiresConfirmation) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+
+        <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
+          <Card className="p-6 sm:p-8 bg-white/95 backdrop-blur-md shadow-2xl border-slate-700/40 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Check Your Inbox</h2>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              We've created your organization account for <strong className="text-slate-900">{email}</strong>. Please click the verification link in the email sent by Supabase to activate your account.
+            </p>
+
+            <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-left text-xs text-amber-900 mb-6">
+              <div className="font-semibold text-amber-900 mb-1">Testing & Development Tip:</div>
+              <p className="text-amber-800 text-[11px] leading-relaxed">
+                To log in immediately without waiting for confirmation emails, open your <strong>Supabase Dashboard &rarr; Authentication &rarr; Providers &rarr; Email</strong> and toggle off <strong>"Confirm email"</strong>.
+              </p>
+            </div>
+
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={onNavigateToLogin}
+            >
+              <span>Proceed to Sign In</span>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">

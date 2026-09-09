@@ -1,8 +1,12 @@
 /// <reference types="vite/client" />
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+// Extract the first URL token cleanly in case environment variables were pasted together
+export const supabaseUrl = rawUrl ? rawUrl.split(/\s+/)[0] : undefined;
+
+const rawKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim();
+export const supabasePublishableKey = rawKey ? rawKey.split(/\s+/)[0] : undefined;
 
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(

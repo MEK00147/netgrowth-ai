@@ -30,7 +30,7 @@ interface FollowUpsProps {
 }
 
 export const FollowUps: React.FC<FollowUpsProps> = ({ onSelectLead }) => {
-  const { isDemoMode } = useAuth();
+  const { user, role, isDemoMode } = useAuth();
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [statusFilter, setStatusFilter] = useState<FollowUpStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +53,7 @@ export const FollowUps: React.FC<FollowUpsProps> = ({ onSelectLead }) => {
 
   useEffect(() => {
     loadFollowUps();
-  }, [loadFollowUps, isDemoMode]);
+  }, [loadFollowUps, isDemoMode, user?.id, role]);
 
   const handleToggleComplete = async (fup: FollowUp) => {
     const newStatus = fup.status === 'completed' ? 'scheduled' : 'completed';

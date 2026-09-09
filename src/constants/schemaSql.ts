@@ -1,4 +1,4 @@
--- ==============================================================================
+export const MULTI_TENANT_SCHEMA_SQL = `-- ==============================================================================
 -- NetGrowth / LeadFlow AI: Organization-Based Access Control & Manual Lead Assignment
 -- PostgreSQL & Supabase Database Migration (Production-Ready)
 -- ==============================================================================
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_by UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, -- Backwards compatibility alias
+  owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   first_name TEXT NOT NULL,
   last_name TEXT,
   full_name TEXT,
@@ -97,8 +97,8 @@ ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS buying_intent TEXT,
   ADD COLUMN IF NOT EXISTS recommended_action TEXT;
 
--- 6. ACTIVITIES / LEAD_ACTIVITIES TABLE
--- Comprehensive audit trail for leads, assignment events, and communication
+-- 6. ACTIVITIES TABLE
+-- Comprehensive audit trail for leads, assignment events, and notes
 CREATE TABLE IF NOT EXISTS public.activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lead_id UUID NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
@@ -132,9 +132,7 @@ CREATE TABLE IF NOT EXISTS public.follow_ups (
   completed_at TIMESTAMPTZ
 );
 
--- ==============================================================================
 -- 8. INDEXES FOR HIGH-PERFORMANCE MULTI-TENANT QUERYING
--- ==============================================================================
 CREATE INDEX IF NOT EXISTS idx_org_members_org_id ON public.organization_members(organization_id);
 CREATE INDEX IF NOT EXISTS idx_org_members_user_id ON public.organization_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_org_members_role ON public.organization_members(role);
@@ -154,11 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_activities_user_id ON public.activities(user_id);
 CREATE INDEX IF NOT EXISTS idx_follow_ups_lead_id ON public.follow_ups(lead_id);
 CREATE INDEX IF NOT EXISTS idx_follow_ups_scheduled_for ON public.follow_ups(scheduled_for ASC);
 
--- ==============================================================================
--- 9. SECURITY DEFINER HELPER FUNCTIONS (PREVENT RECURSIVE RLS & BYPASS VULNERABILITIES)
--- ==============================================================================
-
--- Safely lookup current authenticated user's organization ID
+-- 9. SECURITY DEFINER HELPER FUNCTIONS
 CREATE OR REPLACE FUNCTION public.get_auth_user_organization_id()
 RETURNS UUID AS $$
   SELECT organization_id
@@ -167,7 +161,6 @@ RETURNS UUID AS $$
   LIMIT 1;
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
--- Safely lookup current authenticated user's organization role ('admin' or 'sales')
 CREATE OR REPLACE FUNCTION public.get_auth_user_role()
 RETURNS TEXT AS $$
   SELECT role
@@ -176,7 +169,6 @@ RETURNS TEXT AS $$
   LIMIT 1;
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
--- Check if current authenticated user is an admin in their organization
 CREATE OR REPLACE FUNCTION public.is_org_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -187,23 +179,7 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
--- Verify if target salesperson belongs to the same organization and has 'sales' role
-CREATE OR REPLACE FUNCTION public.is_valid_org_salesperson(target_user_id UUID, target_org_id UUID)
-RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.organization_members
-    WHERE user_id = target_user_id
-      AND organization_id = target_org_id
-      AND role = 'sales'
-  );
-$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
-
--- ==============================================================================
 -- 10. ROW LEVEL SECURITY (RLS) POLICIES
--- ==============================================================================
-
--- Enable RLS on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
@@ -211,9 +187,7 @@ ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.follow_ups ENABLE ROW LEVEL SECURITY;
 
--- ------------------------------------------------------------------------------
 -- PROFILES POLICIES
--- ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Users can view profiles in their organization" ON public.profiles;
 CREATE POLICY "Users can view profiles in their organization"
   ON public.profiles FOR SELECT
@@ -237,9 +211,7 @@ CREATE POLICY "Users can insert their own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
--- ------------------------------------------------------------------------------
 -- ORGANIZATIONS POLICIES
--- ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Members can view their own organization" ON public.organizations;
 CREATE POLICY "Members can view their own organization"
   ON public.organizations FOR SELECT
@@ -247,9 +219,7 @@ CREATE POLICY "Members can view their own organization"
     id = public.get_auth_user_organization_id()
   );
 
--- ------------------------------------------------------------------------------
 -- ORGANIZATION_MEMBERS POLICIES
--- ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Members can view members of their organization" ON public.organization_members;
 CREATE POLICY "Members can view members of their organization"
   ON public.organization_members FOR SELECT
@@ -269,13 +239,9 @@ CREATE POLICY "Admins can manage organization members"
     AND organization_id = public.get_auth_user_organization_id()
   );
 
--- ------------------------------------------------------------------------------
--- LEADS POLICIES: MULTI-TENANT & STRICT ROLE SEPARATION
--- ------------------------------------------------------------------------------
--- SELECT:
+-- LEADS POLICIES: MULTI-TENANT & ROLE-BASED ISOLATION
 -- 1. Admins see ALL leads in their organization.
 -- 2. Sales users see ONLY leads assigned to their authenticated user ID in their organization.
--- 3. Users from other organizations see ZERO leads.
 DROP POLICY IF EXISTS "Role-based leads view policy" ON public.leads;
 CREATE POLICY "Role-based leads view policy"
   ON public.leads FOR SELECT
@@ -287,9 +253,7 @@ CREATE POLICY "Role-based leads view policy"
     )
   );
 
--- INSERT:
 -- Admins can create leads for their organization.
--- Sales users cannot create leads unless permitted, or only for their org.
 DROP POLICY IF EXISTS "Admins can create leads" ON public.leads;
 CREATE POLICY "Admins can create leads"
   ON public.leads FOR INSERT
@@ -298,10 +262,7 @@ CREATE POLICY "Admins can create leads"
     AND organization_id = public.get_auth_user_organization_id()
   );
 
--- UPDATE:
--- 1. Admins can update any field and assign/reassign leads within their organization.
--- 2. Sales users can update ONLY leads assigned to them.
---    Sales users CANNOT change assigned_to or organization_id.
+-- Admins can update any field and assign/reassign leads within their organization.
 DROP POLICY IF EXISTS "Admins can update all organization leads" ON public.leads;
 CREATE POLICY "Admins can update all organization leads"
   ON public.leads FOR UPDATE
@@ -314,6 +275,8 @@ CREATE POLICY "Admins can update all organization leads"
     AND organization_id = public.get_auth_user_organization_id()
   );
 
+-- Sales users can update ONLY leads assigned to them.
+-- Sales users CANNOT change assigned_to or organization_id (enforced in WITH CHECK).
 DROP POLICY IF EXISTS "Sales users can update only their assigned leads" ON public.leads;
 CREATE POLICY "Sales users can update only their assigned leads"
   ON public.leads FOR UPDATE
@@ -325,10 +288,9 @@ CREATE POLICY "Sales users can update only their assigned leads"
   WITH CHECK (
     public.get_auth_user_role() = 'sales'
     AND organization_id = public.get_auth_user_organization_id()
-    AND assigned_to = auth.uid() -- Enforces that sales users cannot reassign leads!
+    AND assigned_to = auth.uid()
   );
 
--- DELETE:
 -- Only Admins can delete leads belonging to their organization.
 DROP POLICY IF EXISTS "Admins can delete organization leads" ON public.leads;
 CREATE POLICY "Admins can delete organization leads"
@@ -338,10 +300,7 @@ CREATE POLICY "Admins can delete organization leads"
     AND organization_id = public.get_auth_user_organization_id()
   );
 
--- ------------------------------------------------------------------------------
 -- ACTIVITIES POLICIES
--- ------------------------------------------------------------------------------
--- SELECT: Users see activities only for leads they have access to.
 DROP POLICY IF EXISTS "Users can view activities for accessible leads" ON public.activities;
 CREATE POLICY "Users can view activities for accessible leads"
   ON public.activities FOR SELECT
@@ -357,7 +316,6 @@ CREATE POLICY "Users can view activities for accessible leads"
     )
   );
 
--- INSERT: Admins and Sales users can append activities to accessible leads.
 DROP POLICY IF EXISTS "Users can create activities for accessible leads" ON public.activities;
 CREATE POLICY "Users can create activities for accessible leads"
   ON public.activities FOR INSERT
@@ -373,9 +331,7 @@ CREATE POLICY "Users can create activities for accessible leads"
     )
   );
 
--- ------------------------------------------------------------------------------
 -- FOLLOW_UPS POLICIES
--- ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Users can access follow-ups for accessible leads" ON public.follow_ups;
 CREATE POLICY "Users can access follow-ups for accessible leads"
   ON public.follow_ups FOR ALL
@@ -391,9 +347,7 @@ CREATE POLICY "Users can access follow-ups for accessible leads"
     )
   );
 
--- ==============================================================================
 -- 11. AUTOMATIC PROFILE AND ORGANIZATION CREATION TRIGGER
--- ==============================================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user_org_setup()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -404,13 +358,11 @@ BEGIN
   user_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', 'Executive');
   user_company := COALESCE(NEW.raw_user_meta_data->>'company_name', 'Primary Workspace');
 
-  -- 1. Create or update profile
   INSERT INTO public.profiles (id, email, full_name, company_name)
   VALUES (NEW.id, NEW.email, user_full_name, user_company)
   ON CONFLICT (id) DO UPDATE
   SET email = EXCLUDED.email;
 
-  -- 2. If user is not yet part of any organization, provision workspace with Admin role
   IF NOT EXISTS (SELECT 1 FROM public.organization_members WHERE user_id = NEW.id) THEN
     INSERT INTO public.organizations (name)
     VALUES (user_company)
@@ -429,11 +381,7 @@ CREATE TRIGGER on_auth_user_created_org
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_org_setup();
 
--- ==============================================================================
 -- 12. PERMISSIONS & ROLE PRIVILEGES
--- Ensures the PostgREST API roles (authenticated and anon) have access
--- to execute queries through Row Level Security (RLS)
--- ==============================================================================
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
@@ -443,9 +391,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated;
 
--- ==============================================================================
 -- 13. IDEMPOTENT BACKFILL: INITIALIZE ORGANIZATIONS FOR EXISTING USERS & LEADS
--- ==============================================================================
 DO $$
 DECLARE
   p RECORD;
@@ -472,3 +418,4 @@ BEGIN
   END LOOP;
 END;
 $$;
+`;
